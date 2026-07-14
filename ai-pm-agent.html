@@ -455,8 +455,9 @@
   <div class="header">
     <h1 id="panelTitle">📄 简历优化</h1>
     <div class="header-right">
+      <span id="serverStatus" style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(255,100,100,0.15);color:#ff6464;">🔴 离线模式</span>
       <button class="btn outline small" onclick="openSettings()" style="font-size:12px;padding:5px 12px;">🎨 外观</button>
-      <span class="badge">AI PM · Demo v1.0</span>
+      <span class="badge">AI PM · Demo v2.0</span>
     </div>
   </div>
   <div class="content" id="panelContainer">
@@ -479,7 +480,7 @@
     <!-- Panel 2: Interview -->
     <div class="panel" id="panel-interview">
       <div class="card">
-        <h3><span class="dot pink"></span> 选择面试题目类型</h3>
+        <h3><span class="dot pink"></span> AI 智能面试模拟</h3>
         <div class="tags" id="interviewTags">
           <span class="tag active" data-cat="all">全部</span>
           <span class="tag" data-cat="product">产品设计</span>
@@ -489,8 +490,8 @@
           <span class="tag" data-cat="behavior">行为面试</span>
         </div>
         <div class="actions">
-          <button class="btn" onclick="generateQuestion()">🎲 随机出题</button>
-          <button class="btn outline small" onclick="showAnswer()">💡 查看思路</button>
+          <button class="btn" onclick="generateAIQuestion()" id="genQBtn">🎲 AI 智能出题</button>
+          <button class="btn outline small" onclick="loadLocalQuestion()">📋 本地题库</button>
         </div>
         <div id="interviewQA"></div>
       </div>
@@ -582,7 +583,18 @@
 </div>
 
 <script>
-// ============ Data ============
+// ============ 配置 ============
+const API_BASE = (() => {
+  // 优先使用本地后端，否则用环境变量或默认
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  return window.AGENT_API_URL || 'http://localhost:3001';
+})();
+
+let isServerOnline = false;
+
+// ============ Data（离线备用）============
 const sampleResume = `产品经理 | XX公司 | 2022-至今
 • 负责B端SaaS产品从0到1搭建，DAU从0增长至5万
 • 主导需求评审、PRD撰写，协调10人研发团队完成版本迭代
@@ -743,12 +755,49 @@ const interviewQuestions = {
     { q: "你怎么理解 AI Native 产品？举个你认为好的例子", cat: "strategy" },
   ]
 };
-// Copy all questions to individual categories
 ['product','ai','data','strategy','behavior'].forEach(cat => {
   interviewQuestions[cat] = interviewQuestions.all.filter(q => q.cat === cat);
 });
 
 let currentQuestion = null;
+let questionHistory = [];
+
+// ============ API 调用 ============
+async function apiCall(endpoint, body) {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '请求失败');
+    return data;
+  } catch (err) {
+    console.error('API 错误:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function checkServerStatus() {
+  const statusEl = document.getElementById('serverStatus');
+  try {
+    const res = await fetch(`${API_BASE}/api/health`);
+    if (res.ok) {
+      isServerOnline = true;
+      statusEl.textContent = '🟢 AI 在线';
+      statusEl.style.background = 'rgba(0,201,167,0.15)';
+      statusEl.style.color = '#00c9a7';
+    } else {
+      throw new Error('offline');
+    }
+  } catch {
+    isServerOnline = false;
+    statusEl.textContent = '🔴 离线模式';
+    statusEl.style.background = 'rgba(255,100,100,0.15)';
+    statusEl.style.color = '#ff6464';
+  }
+}
 
 // ============ Navigation ============
 document.querySelectorAll('.nav-btn').forEach(btn => {
@@ -776,284 +825,249 @@ document.getElementById('knowledgeTags').addEventListener('click', (e) => {
     document.querySelectorAll('#knowledgeTags .tag').forEach(t => t.classList.remove('active'));
     e.target.classList.add('active');
     const topic = e.target.dataset.topic;
-    document.getElementById('knowledgeResult').innerHTML = knowledgeBase[topic].replace(/\n/g, '<br>');
+    loadKnowledge(topic);
   }
 });
 
-// ============ Resume ============
-function optimizeResume() {
+async function loadKnowledge(topic) {
+  const resultEl = document.getElementById('knowledgeResult');
+  if (isServerOnline) {
+    resultEl.innerHTML = '<span class="typing">AI 正在生成回答</span>';
+    const topicNames = {
+      llm: '大模型基础（LLM）', prompt: 'Prompt Engineering', rag: 'RAG检索增强生成',
+      agent: 'AI Agent', eval: '大模型评估方法', fine: '模型微调/SFT',
+      product: 'AIPM方法论', trend: '2024-2025 AI行业趋势'
+    };
+    const res = await apiCall('/api/knowledge/ask', { topic: topicNames[topic] || topic });
+    if (res.success) {
+      resultEl.innerHTML = res.data.replace(/\n/g, '<br>');
+    } else {
+      resultEl.innerHTML = knowledgeBase[topic].replace(/\n/g, '<br>');
+    }
+  } else {
+    resultEl.innerHTML = knowledgeBase[topic].replace(/\n/g, '<br>');
+  }
+}
+
+// ============ Resume - AI 优化 ============
+async function optimizeResume() {
   const input = document.getElementById('resumeInput').value.trim();
   if (!input) { alert('请先粘贴简历内容'); return; }
 
   const result = document.getElementById('resumeResult');
-  result.innerHTML = '<span class="typing">正在分析优化</span>';
 
-  setTimeout(() => {
-    const analysis = analyzeResumeLocally(input);
-    result.innerHTML = analysis;
-  }, 1200);
+  if (isServerOnline) {
+    result.innerHTML = '<span class="typing">🤖 AI 正在深度分析你的简历</span>';
+    const res = await apiCall('/api/resume/optimize', { resume: input });
+    if (res.success) {
+      result.innerHTML = res.data.replace(/\n/g, '<br>');
+    } else {
+      result.innerHTML = `<strong>⚠️ AI 服务异常：</strong>${res.error}<br><br><em>已自动切换本地分析模式...</em><br><br>` + analyzeResumeLocally(input);
+    }
+  } else {
+    result.innerHTML = '<span class="typing">正在分析优化</span>';
+    setTimeout(() => {
+      result.innerHTML = analyzeResumeLocally(input);
+    }, 800);
+  }
 }
 
 function analyzeResumeLocally(text) {
-  const suggestions = [];
   const lower = text.toLowerCase();
-
-  // Check for AI keywords
   const aiKeywords = ['ai', 'llm', '大模型', '机器学习', '深度学习', 'nlp', 'prompt', 'agent', 'rag', 'embedding', '微调', 'sft', 'transformer', 'gpt', 'chatgpt', 'copilot'];
   const foundAI = aiKeywords.filter(kw => lower.includes(kw));
-
   const pmKeywords = ['需求分析', 'prd', '产品设计', '原型', '用户体验', '竞品分析', '数据分析', 'a/b测试', 'ab测试', '用户调研', '增长', '留存', '转化', 'dau', 'mau'];
   const foundPM = pmKeywords.filter(kw => lower.includes(kw));
-
   const dataKeywords = ['sql', 'python', 'tableau', '数据驱动', '指标体系', 'ab实验', '埋点', '看板'];
   const foundData = dataKeywords.filter(kw => lower.includes(kw));
 
-  let result = `<strong>📊 分析结果</strong>\n\n`;
-
-  // Score
+  let result = `<strong>📊 分析结果</strong>（本地离线模式）\n\n`;
   let score = 60;
-  if (foundAI.length >= 3) score += 15;
-  else if (foundAI.length >= 1) score += 8;
-  if (foundPM.length >= 5) score += 10;
-  else if (foundPM.length >= 3) score += 5;
-  if (foundData.length >= 2) score += 10;
-  else if (foundData.length >= 1) score += 5;
+  if (foundAI.length >= 3) score += 15; else if (foundAI.length >= 1) score += 8;
+  if (foundPM.length >= 5) score += 10; else if (foundPM.length >= 3) score += 5;
+  if (foundData.length >= 2) score += 10; else if (foundData.length >= 1) score += 5;
   score = Math.min(score, 95);
 
   result += `<strong>AI PM 匹配度评分：${score}/100</strong>\n\n`;
-
   result += `<strong>🔍 已识别的 AI 关键词：</strong>\n`;
   result += foundAI.length > 0 ? foundAI.join('、') + '\n' : '⚠️ 未检测到 AI 相关关键词\n';
-  result += '\n';
-
-  result += `<strong>📋 产品能力关键词：</strong>\n`;
+  result += '\n<strong>📋 产品能力关键词：</strong>\n';
   result += foundPM.length > 0 ? foundPM.join('、') + '\n' : '⚠️ 产品经验描述不足\n';
-  result += '\n';
-
-  result += `<strong>💡 优化建议：</strong>\n`;
-
-  if (foundAI.length < 2) {
-    result += '• 强烈建议补充 AI/LLM 相关项目经验，即使只是个人项目或学习实践\n';
-  }
-  if (!lower.includes('数据') && !lower.includes('指标')) {
-    result += '• 增加数据驱动决策的具体案例（如：通过XX数据分析，发现XX问题，推动XX优化，提升XX指标）\n';
-  }
-  if (!lower.includes('%') && !lower.includes('提升') && !lower.includes('增长')) {
-    result += '• 用具体数字量化成果（如：转化率提升30%、DAU增长50%）\n';
-  }
-  if (foundPM.length < 4) {
-    result += '• 补充完整的产品工作流描述（需求发现→分析→设计→落地→复盘）\n';
-  }
-  result += '• 建议在简历中加入对 AI 产品的思考和见解，展示行业认知\n';
-  result += '• 突出跨团队协作经验，AI PM 需要与算法/工程团队密切配合\n';
-
+  result += '\n<strong>💡 优化建议：</strong>\n';
+  if (foundAI.length < 2) result += '• 强烈建议补充 AI/LLM 相关项目经验\n';
+  if (!lower.includes('数据') && !lower.includes('指标')) result += '• 增加数据驱动决策的具体案例\n';
+  if (!lower.includes('%') && !lower.includes('提升') && !lower.includes('增长')) result += '• 用具体数字量化成果\n';
+  if (foundPM.length < 4) result += '• 补充完整的产品工作流描述\n';
+  result += '• 在简历中加入对 AI 产品的思考和见解\n';
+  result += '• 突出跨团队协作经验\n';
+  result += '\n<em>💡 提示：连接后端 AI 服务可获得更专业的深度分析和改写建议</em>';
   return result;
 }
 
 // ============ Interview ============
-function generateQuestion() {
+async function generateAIQuestion() {
+  const activeTag = document.querySelector('#interviewTags .tag.active');
+  const cat = activeTag ? activeTag.dataset.cat : 'all';
+  const genQBtn = document.getElementById('genQBtn');
+  genQBtn.textContent = '⏳ AI 正在出题...';
+  genQBtn.disabled = true;
+
+  if (isServerOnline) {
+    const res = await apiCall('/api/interview/question', { category: cat, history: questionHistory });
+    genQBtn.textContent = '🎲 AI 智能出题';
+    genQBtn.disabled = false;
+
+    if (res.success && res.data) {
+      currentQuestion = res.data;
+      questionHistory.push(res.data.question);
+      showQuestionWithAnswerInput(res.data);
+      return;
+    }
+  }
+
+  // 离线 fallback
+  genQBtn.textContent = '🎲 AI 智能出题';
+  genQBtn.disabled = false;
+  loadLocalQuestion();
+}
+
+function loadLocalQuestion() {
   const activeTag = document.querySelector('#interviewTags .tag.active');
   const cat = activeTag ? activeTag.dataset.cat : 'all';
   const pool = interviewQuestions[cat] || interviewQuestions.all;
   const q = pool[Math.floor(Math.random() * pool.length)];
-  currentQuestion = q;
+  currentQuestion = { question: q.q, category: q.cat, key_points: [], difficulty: 'medium' };
+  showQuestionWithAnswerInput(currentQuestion);
+}
+
+function showQuestionWithAnswerInput(data) {
+  const q = data.question || data.q;
+  const cat = data.category || data.cat;
+  const points = data.key_points || [];
 
   document.getElementById('interviewQA').innerHTML = `
     <div class="qa-block">
-      <div class="q">🎯 ${q.q}</div>
-      <div class="a"><em>思考 30 秒，组织你的回答，然后点击「查看思路」对比参考...</em></div>
+      <div class="q">🎯 ${q}</div>
+      ${points.length > 0 ? `<div style="font-size:12px;color:var(--accent);margin:6px 0;">考察点：${points.join('、')}</div>` : ''}
       <div class="score">
         <span style="color:var(--text2);font-size:12px;">难度：</span>
-        ${q.cat === 'ai' ? '⭐⭐⭐⭐' : q.cat === 'strategy' ? '⭐⭐⭐⭐' : '⭐⭐⭐'}
+        ${data.difficulty === 'hard' ? '⭐⭐⭐⭐' : cat === 'ai' || cat === 'strategy' ? '⭐⭐⭐⭐' : '⭐⭐⭐'}
       </div>
+      <div style="margin-top:12px;">
+        <textarea id="answerInput" placeholder="在这里写下你的回答...&#10;&#10;建议用 STAR 法则：情境 → 任务 → 行动 → 结果" style="min-height:100px;"></textarea>
+        <div class="actions">
+          <button class="btn" onclick="evaluateAnswer()">🤖 AI 评估我的回答</button>
+          <button class="btn outline small" onclick="showLocalAnswer()">💡 查看参考思路</button>
+        </div>
+      </div>
+      <div id="evaluationResult"></div>
     </div>
   `;
 }
 
-function showAnswer() {
+async function evaluateAnswer() {
+  const answer = document.getElementById('answerInput')?.value.trim();
+  if (!answer) { alert('请先写下你的回答'); return; }
+
+  const evalResult = document.getElementById('evaluationResult');
+  evalResult.innerHTML = '<div class="result"><span class="typing">🤖 AI 正在评估你的回答</span></div>';
+
+  if (isServerOnline && currentQuestion) {
+    const res = await apiCall('/api/interview/evaluate', {
+      question: currentQuestion.question,
+      answer: answer
+    });
+    if (res.success) {
+      evalResult.innerHTML = `<div class="result">${res.data.replace(/\n/g, '<br>')}</div>`;
+      return;
+    }
+  }
+
+  // 离线模式给出简单反馈
+  setTimeout(() => {
+    const wordCount = answer.length;
+    let feedback = `<strong>📝 离线评估</strong>（连接 AI 服务可获得详细评估）\n\n`;
+    feedback += `字数：${wordCount} 字\n`;
+    if (wordCount < 50) feedback += '⚠️ 回答过短，建议展开论述\n';
+    else if (wordCount < 200) feedback += '💡 回答可以更详细，建议用 STAR 法则展开\n';
+    else feedback += '✅ 回答篇幅适中\n';
+    feedback += '\n<strong>自检清单：</strong>\n';
+    feedback += '• 是否用了具体数据和案例？\n';
+    feedback += '• 是否展示了 AI 技术理解？\n';
+    feedback += '• 回答结构是否清晰（总-分-总）？\n';
+    feedback += '\n<em>💡 启动后端 AI 服务可获取专业面试官级别的详细评估</em>';
+    evalResult.innerHTML = `<div class="result">${feedback.replace(/\n/g, '<br>')}</div>`;
+  }, 800);
+}
+
+function showLocalAnswer() {
   if (!currentQuestion) { alert('请先生成一道面试题'); return; }
+  const q = currentQuestion.question || currentQuestion.q;
 
   const answers = {
     "如果让你设计一个 AI 客服产品，你会怎么规划？": `【参考思路】
-1. 市场分析：目标客户是谁？（电商/金融/教育）客服痛点是什么？（重复问题多、人力成本高）
-2. 核心功能 MVP：
-   - 知识库问答（RAG）：企业文档导入 → 自动回答
-   - 人工无缝转接：AI 答不上来时转人工
-   - 多轮对话：记住上下文，不是一问一答
-3. 差异化：情感识别（安抚愤怒用户）、主动服务（预测问题）
-4. 指标体系：问题解决率、转人工率、用户满意度（CSAT）、首次响应时间
-5. 技术方案：RAG + 意图识别 + 情感分析 + 工单系统集成`,
+1. 市场分析：目标客户（电商/金融/教育），痛点（重复问题多、人力成本高）
+2. MVP 核心：知识库问答(RAG) + 人工转接 + 多轮对话
+3. 差异化：情感识别、主动服务
+4. 指标：问题解决率、转人工率、CSAT、首次响应时间
+5. 技术：RAG + 意图识别 + 情感分析 + 工单集成`,
     "解释一下 RAG 的基本原理，以及它的典型应用场景": `【参考思路】
-RAG = Retrieval-Augmented Generation（检索增强生成）
-
-原理三步走：
-1. Retrieve（检索）：用户提问 → 向量化 → 在知识库中检索最相关的文档片段
-2. Augment（增强）：把检索到的内容拼接到 Prompt 中
-3. Generate（生成）：LLM 基于增强后的上下文生成回答
-
-典型应用：
-• 企业知识库问答（员工手册、技术文档）
-• 智能客服（产品说明书、FAQ）
-• 法律/医疗辅助（法规库、病例库）
-• 代码助手（代码库检索）
-
-关键产品决策：Chunk 大小、检索策略（语义 vs 关键词混合）、Top-K 设置`,
+RAG = Retrieval-Augmented Generation
+三步：Retrieve(检索) → Augment(增强) → Generate(生成)
+应用：企业知识库问答、智能客服、法律/医疗辅助、代码助手
+关键决策：Chunk 大小、检索策略、Top-K 设置`,
     "如何评估一个大模型产品的好坏？请给出你的指标体系": `【参考思路】
-分四层指标体系：
-
-1. 效果层（好不好用）：
-   - 回答准确率、相关性评分
-   - 用户满意度（点赞/点踩率）
-   - 任务完成率
-
-2. 体验层（用着爽不爽）：
-   - 首次响应时间（TTFT）
-   - 端到端延迟
-   - 对话轮次/任务完成所需轮次
-
-3. 增长层（有没有人用）：
-   - DAU/MAU、留存率（次日/7日/30日）
-   - 分享率、NPS
-
-4. 成本层（划不划算）：
-   - 单次对话成本
-   - 模型调用成本 vs 用户价值
-   - ROI`,
-    "AI 产品的商业化路径有哪些？分别适合什么场景？": `【参考思路】
-1. SaaS 订阅（按月/年收费）→ 适合企业工具，如 Notion AI
-2. API 按量计费（Pay-as-you-go）→ 适合开发者平台，如 OpenAI
-3. 免费增值（Freemium）→ 适合 C 端产品，如 ChatGPT
-4. 交易抽成 → 适合 AI 撮合平台
-5. 广告变现 → 适合 AI 搜索、内容推荐
-
-关键思考：
-• 算力成本是 AI 产品商业化的核心挑战
-• B 端看重 ROI（省了多少人力/时间）
-• C 端看重体验提升的感知价值`,
-    "你怎么看待 Prompt Engineering 产品化？": `【参考思路】
-Prompt Engineering 产品化的几个方向：
-
-1. Prompt 管理平台：模板库、版本管理、A/B 测试
-2. 自动化 Prompt 优化：给定任务，自动生成和优化 Prompt
-3. Prompt 安全防护：防止注入攻击、内容审核
-
-产品思考：
-• Prompt Engineering 本身可能是过渡形态
-• 随着模型能力提升，对 Prompt 的依赖会降低
-• 但"如何精准表达需求给 AI"这个能力会长期存在
-• 更像是"人机交互的新范式"，而非临时技能`,
-    "设计一个 AI 面试模拟产品的 MVP，你会怎么做？": `【参考思路】
-MVP 三步走：
-
-第一周 - 核心功能：
-• 题库：50 道 AI PM 高频面试题
-• 语音输入（Web Speech API）
-• AI 评价：回答后给出评分 + 改进建议
-• 单页 Web App，极简交互
-
-第二周 - 差异化：
-• 个性化出题：根据目标公司和岗位定制
-• 追问模式：模拟面试官追问
-• 录音回放：自己听自己的回答
-
-第三周 - 增长：
-• 面试题社区（UGC）
-• 模拟面试排行/打卡
-• 面试通过率数据追踪
-
-指标：日活、完成率、NPS`,
+四层指标：效果层(准确率/满意度)、体验层(TTFT/延迟)、增长层(DAU/留存/NPS)、成本层(单次成本/ROI)`,
   };
 
-  // Generic fallback
-  const answerText = answers[currentQuestion.q] || `【参考思路】
-这是一个${currentQuestion.cat === 'ai' ? '技术理解' : currentQuestion.cat === 'product' ? '产品设计' : currentQuestion.cat === 'data' ? '数据分析' : currentQuestion.cat === 'strategy' ? '策略思考' : '综合'}类问题。
+  const answerText = answers[q] || `【参考思路】建议用 STAR 法则回答：
+• Situation：背景场景
+• Task：面临的任务
+• Action：采取的行动
+• Result：取得的结果（用数据说话）`;
 
-建议回答框架（STAR 法则）：
-• Situation：背景和场景
-• Task：你面临的任务
-• Action：你采取了什么行动
-• Result：取得了什么结果（用数据说话）
-
-AI PM 面试加分点：
-• 展示对 AI 技术的理解深度
-• 展现产品思维和用户同理心
-• 用数据和事实支撑观点
-• 展示对行业的独立思考`;
-
-  const qaBlock = document.querySelector('#interviewQA .qa-block');
-  if (qaBlock) {
-    qaBlock.querySelector('.a').innerHTML = answerText.replace(/\n/g, '<br>');
-  }
+  const evalResult = document.getElementById('evaluationResult');
+  evalResult.innerHTML = `<div class="result">${answerText.replace(/\n/g, '<br>')}</div>`;
 }
 
 // ============ JD Analysis ============
-function analyzeJD() {
+async function analyzeJD() {
   const input = document.getElementById('jdInput').value.trim();
   if (!input) { alert('请先粘贴 JD 内容'); return; }
 
   const result = document.getElementById('jdResult');
-  result.innerHTML = '<span class="typing">正在分析 JD</span>';
 
+  if (isServerOnline) {
+    result.innerHTML = '<span class="typing">🤖 AI 正在深度分析 JD</span>';
+    const res = await apiCall('/api/jd/analyze', { jd: input });
+    if (res.success) {
+      result.innerHTML = res.data.replace(/\n/g, '<br>');
+      return;
+    }
+  }
+
+  result.innerHTML = '<span class="typing">正在分析 JD</span>';
   setTimeout(() => {
-    const analysis = analyzeJDLocally(input);
-    result.innerHTML = analysis;
-  }, 1000);
+    result.innerHTML = analyzeJDLocally(input);
+  }, 600);
 }
 
 function analyzeJDLocally(jd) {
-  let result = `<strong>🔍 JD 分析报告</strong>\n\n`;
-
-  // Keywords
-  const techKeywords = ['llm', '大模型', '大语言模型', 'gpt', 'transformer', 'prompt', 'agent', 'rag', 'nlp', '机器学习', '深度学习', '算法', 'fine-tune', '微调', 'sft', 'embedding', '向量', '多模态', 'diffusion', 'stable diffusion'];
-  const pmKeywords = ['需求分析', '产品规划', '产品设计', 'prd', '用户体验', '原型', '竞品分析', '数据分析', 'a/b', 'ab测试', '用户调研', '增长', '指标'];
-  const toolKeywords = ['sql', 'python', 'figma', 'axure', 'tableau', 'jira', 'confluence', 'notion'];
-  const softKeywords = ['自驱', '沟通', '协作', '好奇', '热情', 'owner', 'ownership', '抗压', '快速学习'];
-
+  const techKeywords = ['llm', '大模型', '大语言模型', 'gpt', 'transformer', 'prompt', 'agent', 'rag', 'nlp', '机器学习', '深度学习', '算法', '微调', 'sft', 'embedding', '向量', '多模态'];
+  const pmKeywords = ['需求分析', '产品规划', '产品设计', 'prd', '用户体验', '原型', '竞品分析', '数据分析', 'a/b', '用户调研', '增长', '指标'];
+  const toolKeywords = ['sql', 'python', 'figma', 'axure', 'tableau', 'jira'];
+  const softKeywords = ['自驱', '沟通', '协作', '好奇', '热情', 'owner', '抗压', '快速学习'];
   const lower = jd.toLowerCase();
-  const foundTech = techKeywords.filter(k => lower.includes(k));
-  const foundPM = pmKeywords.filter(k => lower.includes(k));
-  const foundTool = toolKeywords.filter(k => lower.includes(k));
-  const foundSoft = softKeywords.filter(k => lower.includes(k));
 
-  result += `<strong>📌 技术能力要求：</strong>\n`;
-  result += foundTech.length > 0 ? foundTech.map(k => '• ' + k).join('\n') : '• 未明确提及具体技术栈\n';
-  result += '\n';
-
-  result += `<strong>📌 产品能力要求：</strong>\n`;
-  result += foundPM.length > 0 ? foundPM.map(k => '• ' + k).join('\n') : '• 通用产品能力\n';
-  result += '\n';
-
-  result += `<strong>📌 工具/技能要求：</strong>\n`;
-  result += foundTool.length > 0 ? foundTool.map(k => '• ' + k).join('\n') : '• 未明确要求\n';
-  result += '\n';
-
-  result += `<strong>📌 软素质要求：</strong>\n`;
-  result += foundSoft.length > 0 ? foundSoft.map(k => '• ' + k).join('\n') : '• 通用素质要求\n';
-  result += '\n';
-
-  // Match analysis
-  result += `<strong>💡 准备建议：</strong>\n`;
-  if (foundTech.length > 0) {
-    result += `• 重点准备 ${foundTech.slice(0, 3).join('、')} 相关知识\n`;
-  }
-  result += '• 准备 1-2 个 AI 产品相关项目案例\n';
-  result += '• 研究该公司现有 AI 产品，准备你的改进建议\n';
-  result += '• 准备对 AI 行业趋势的独立见解\n';
-
-  // Difficulty
-  const total = foundTech.length + foundPM.length + foundTool.length + foundSoft.length;
-  const difficulty = total > 12 ? '偏高，建议充分准备技术面和产品面' :
-                     total > 8 ? '中等，重点突出 AI 相关经验' :
-                     '适中，注重展示产品基本功 + AI 学习热情';
-
-  result += `\n<strong>📊 岗位要求强度：</strong>${difficulty}`;
-
+  let result = `<strong>🔍 JD 分析报告</strong>（本地离线模式）\n\n`;
+  result += `<strong>📌 技术能力：</strong>\n${techKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 未明确'}\n\n`;
+  result += `<strong>📌 产品能力：</strong>\n${pmKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 通用'}\n\n`;
+  result += `<strong>📌 工具技能：</strong>\n${toolKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 未明确'}\n\n`;
+  result += `<strong>📌 软素质：</strong>\n${softKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 通用'}\n\n`;
+  result += `<strong>💡 建议：</strong>准备 1-2 个 AI 产品案例，研究该公司产品，准备行业见解\n`;
+  result += '\n<em>💡 连接后端 AI 服务可获取深度分析和面试策略</em>';
   return result;
 }
-
-// ============ Init ============
-// Load initial knowledge
-document.getElementById('knowledgeResult').innerHTML = knowledgeBase.llm.replace(/\n/g, '<br>');
 
 // ============ Theme Settings ============
 let currentFontSize = 14;
@@ -1071,11 +1085,9 @@ function closeSettings(e) {
 
 function setTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
-  // Update active state on theme options
   document.querySelectorAll('.theme-option').forEach(opt => {
     opt.classList.toggle('active', opt.dataset.theme === theme);
   });
-  // Save to localStorage
   localStorage.setItem('aipm-theme', theme);
 }
 
@@ -1120,32 +1132,26 @@ function syncSettingsUI() {
     '标准 (' + currentFontSize + 'px)';
 }
 
-// Load saved settings on page load
+// Load saved settings
 (function loadSettings() {
   const savedTheme = localStorage.getItem('aipm-theme');
-  if (savedTheme) {
-    document.documentElement.setAttribute('data-theme', savedTheme);
-  }
-
+  if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
   const savedAccent = localStorage.getItem('aipm-accent');
-  if (savedAccent) {
-    currentAccent = savedAccent;
-    document.documentElement.style.setProperty('--accent', savedAccent);
-  }
-
+  if (savedAccent) { currentAccent = savedAccent; document.documentElement.style.setProperty('--accent', savedAccent); }
   const savedFontSize = localStorage.getItem('aipm-fontsize');
-  if (savedFontSize) {
-    currentFontSize = parseInt(savedFontSize);
-    document.documentElement.style.setProperty('--font-size', currentFontSize + 'px');
-  }
+  if (savedFontSize) { currentFontSize = parseInt(savedFontSize); document.documentElement.style.setProperty('--font-size', currentFontSize + 'px'); }
 })();
 
-// Keyboard shortcut: Esc to close settings
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.getElementById('settingsOverlay').classList.remove('show');
-  }
+  if (e.key === 'Escape') document.getElementById('settingsOverlay').classList.remove('show');
 });
+
+// ============ Init ============
+document.getElementById('knowledgeResult').innerHTML = knowledgeBase.llm.replace(/\n/g, '<br>');
+checkServerStatus();
+// 每 30 秒检查一次服务器状态
+setInterval(checkServerStatus, 30000);
+</script>
 </script>
 </body>
 </html>
