@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="warm">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 产品经理求职助手 - Agent Demo</title>
+<style>
+  /* ===== 主题变量 ===== */
+  :root {
+    --font-size: 14px;
+    --border-radius: 10px;
+  }
+  /* 深色主题（默认） */
+  [data-theme="dark"] {
+    --bg: #0f0f1a;
+    --card: #1a1a2e;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --text: #e0e0e0;
+    --text2: #a0a0b8;
+    --border: #2a2a3e;
+    --tag-bg: rgba(108,99,255,0.1);
+    --tag-hover: rgba(108,99,255,0.2);
+    --result-bg: #0f0f1a;
+    --input-bg: #0f0f1a;
+    --qa-bg: #0f0f1a;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+  }
+  /* 浅色主题 */
+  [data-theme="light"] {
+    --bg: #f5f5fa;
+    --card: #ffffff;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --text: #1a1a2e;
+    --text2: #5a5a7a;
+    --border: #e0e0ec;
+    --tag-bg: rgba(108,99,255,0.08);
+    --tag-hover: rgba(108,99,255,0.15);
+    --result-bg: #f5f5fa;
+    --input-bg: #f5f5fa;
+    --qa-bg: #f5f5fa;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  /* 暖色主题 */
+  [data-theme="warm"] {
+    --bg: #fdf6f0;
+    --card: #fffaf5;
+    --accent: #e8784a;
+    --accent2: #d4556e;
+    --text: #3d2c23;
+    --text2: #8b6f5e;
+    --border: #e8d5c4;
+    --tag-bg: rgba(232,120,74,0.08);
+    --tag-hover: rgba(232,120,74,0.18);
+    --result-bg: #fdf6f0;
+    --input-bg: #fdf6f0;
+    --qa-bg: #fdf6f0;
+    --shadow: 0 2px 12px rgba(180,140,110,0.15);
+  }
+  /* 护眼绿主题 */
+  [data-theme="green"] {
+    --bg: #eef5ee;
+    --card: #f6faf6;
+    --accent: #4a9c6c;
+    --accent2: #3d8b8b;
+    --text: #2d3a2d;
+    --text2: #6b7d6b;
+    --border: #c8dcc8;
+    --tag-bg: rgba(74,156,108,0.08);
+    --tag-hover: rgba(74,156,108,0.18);
+    --result-bg: #eef5ee;
+    --input-bg: #eef5ee;
+    --qa-bg: #eef5ee;
+    --shadow: 0 2px 12px rgba(100,140,100,0.12);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    font-size: var(--font-size);
+    transition: background 0.3s, color 0.3s;
+  }
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    background: var(--card);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex-shrink: 0;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .sidebar h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .sidebar .logo {
+    font-size: 24px;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 24px;
+  }
+  .nav-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    padding: 12px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 14px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-btn:hover, .nav-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .nav-btn .icon { font-size: 18px; }
+  /* Theme toggle btn in sidebar */
+  .theme-btn {
+    margin-top: auto;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text2);
+    padding: 10px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 13px;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .theme-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  /* Main */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: border-color 0.3s;
+  }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge {
+    background: rgba(108,99,255,0.15);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .content {
+    flex: 1;
+    padding: 32px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .card h3 {
+    font-size: 16px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h3 .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .dot.purple { background: var(--accent); }
+  .dot.pink { background: var(--accent2); }
+  .dot.green { background: #00c9a7; }
+  .dot.yellow { background: #ffd166; }
+  /* Textarea / Input */
+  textarea, input[type="text"] {
+    width: 100%;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.2s, background 0.3s, color 0.3s;
+  }
+  textarea:focus, input[type="text"]:focus {
+    border-color: var(--accent);
+  }
+  textarea { min-height: 120px; }
+  /* Buttons */
+  .btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .btn.outline {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+  .btn.small { padding: 6px 14px; font-size: 12px; }
+  .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  /* Result box */
+  .result {
+    background: var(--result-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    min-height: 60px;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text2);
+    margin-top: 12px;
+    transition: background 0.3s, border-color 0.3s, color 0.3s;
+  }
+  .result strong { color: var(--accent); }
+  /* Tags */
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tag {
+    background: var(--tag-bg);
+    color: var(--accent);
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .tag:hover, .tag.active { border-color: var(--accent); background: var(--tag-hover); }
+  /* Chat style */
+  .chat-bubble {
+    padding: 12px 16px;
+    border-radius: 12px;
+    margin: 8px 0;
+    max-width: 85%;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  .chat-bubble.user {
+    background: var(--accent);
+    color: #fff;
+    margin-left: auto;
+    border-bottom-right-radius: 4px;
+  }
+  .chat-bubble.agent {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+  .hidden { display: none !important; }
+  .panel { display: none; }
+  .panel.active { display: flex; flex-direction: column; gap: 20px; }
+  /* typing */
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+  .typing::after { content:'|'; animation:blink 1s infinite; color:var(--accent); }
+  /* interview */
+  .qa-block {
+    background: var(--qa-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    margin: 8px 0;
+    transition: background 0.3s, border-color 0.3s;
+  }
+  .qa-block .q { font-weight: 600; color: var(--text); margin-bottom: 8px; }
+  .qa-block .a { color: var(--text2); line-height: 1.6; }
+  .score { display: flex; gap: 4px; margin: 8px 0; }
+  .score .star { color: #ffd166; font-size: 18px; }
+  .score .star.empty { color: #3a3a50; }
+  /* ===== Theme Settings Modal ===== */
+  .overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s;
+  }
+  .overlay.show { opacity: 1; pointer-events: auto; }
+  .settings-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    width: 400px;
+    max-width: 90vw;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    transition: background 0.3s;
+  }
+  .settings-panel h3 {
+    font-size: 18px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .settings-group { margin-bottom: 20px; }
+  .settings-group label {
+    display: block;
+    font-size: 13px;
+    color: var(--text2);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+  .theme-options {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .theme-option {
+    padding: 12px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: center;
+    font-size: 13px;
+    transition: all 0.2s;
+    background: var(--bg);
+    color: var(--text);
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+  }
+  .theme-option:hover { border-color: var(--accent); }
+  .theme-option.active { border-color: var(--accent); background: var(--tag-bg); }
+  .theme-swatch {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(0,0,0,0.1);
+    flex-shrink: 0;
+  }
+  .swatch-dark { background: linear-gradient(135deg, #0f0f1a, #6c63ff); }
+  .swatch-light { background: linear-gradient(135deg, #f5f5fa, #6c63ff); }
+  .swatch-warm { background: linear-gradient(135deg, #fdf6f0, #e8784a); }
+  .swatch-green { background: linear-gradient(135deg, #eef5ee, #4a9c6c); }
+  .font-size-controls {
+    display: flex; gap: 8px; align-items: center;
+  }
+  .font-btn {
+    width: 36px; height: 36px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+    color: var(--text);
+    transition: all 0.2s;
+  }
+  .font-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .font-label {
+    font-size: 13px;
+    color: var(--text2);
+    min-width: 60px;
+    text-align: center;
+  }
+  .color-picker-row {
+    display: flex; gap: 10px; align-items: center;
+  }
+  input[type="color"] {
+    width: 40px; height: 40px;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    padding: 2px;
+    background: var(--bg);
+    transition: border-color 0.2s;
+  }
+  input[type="color"]:hover { border-color: var(--accent); }
+  .settings-actions {
+    display: flex; gap: 8px; margin-top: 24px;
+    justify-content: flex-end;
+  }
+  /* Responsive */
+  @media (max-width: 768px) {
+    body { flex-direction: column; }
+    .sidebar { width: 100%; flex-direction: row; flex-wrap: wrap; padding: 12px; }
+    .sidebar h2, .sidebar .logo { display: none; }
+    .nav-btn { flex: 1; min-width: 70px; justify-content: center; font-size: 12px; padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="logo">AIPM Agent</div>
+  <h2>求职工具箱</h2>
+  <button class="nav-btn active" data-panel="resume">
+    <span class="icon">📄</span> 简历优化
+  </button>
+  <button class="nav-btn" data-panel="interview">
+    <span class="icon">🎯</span> 面试模拟
+  </button>
+  <button class="nav-btn" data-panel="jd">
+    <span class="icon">🔍</span> JD 分析
+  </button>
+  <button class="nav-btn" data-panel="knowledge">
+    <span class="icon">🧠</span> 知识速查
+  </button>
+  <button class="theme-btn" onclick="openSettings()">
+    <span class="icon">🎨</span> 外观设置
+  </button>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="header">
+    <h1 id="panelTitle">📄 简历优化</h1>
+    <div class="header-right">
+      <span id="serverStatus" style="font-size:11px;padding:3px 10px;border-radius:20px;background:rgba(255,100,100,0.15);color:#ff6464;">🔴 离线模式</span>
+      <button class="btn outline small" onclick="openSettings()" style="font-size:12px;padding:5px 12px;">🎨 外观</button>
+      <span class="badge">AI PM · Demo v2.0</span>
+    </div>
+  </div>
+  <div class="content" id="panelContainer">
+
+    <!-- Panel 1: Resume -->
+    <div class="panel active" id="panel-resume">
+      <div class="card">
+        <h3><span class="dot purple"></span> 粘贴你的简历内容</h3>
+        <textarea id="resumeInput" placeholder="在此粘贴你的简历文字内容...&#10;&#10;例如：&#10;负责XX产品的需求分析与功能设计，协调研发团队完成版本迭代..."></textarea>
+        <div class="actions">
+          <button class="btn" onclick="optimizeResume()">✨ AI 优化</button>
+          <button class="btn outline small" onclick="document.getElementById('resumeInput').value=sampleResume">📋 填入示例</button>
+        </div>
+        <div class="result" id="resumeResult">
+          <em>点击「AI 优化」后，这里会展示针对 AI 产品经理岗位优化后的简历建议...</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 2: Interview -->
+    <div class="panel" id="panel-interview">
+      <div class="card">
+        <h3><span class="dot pink"></span> AI 智能面试模拟</h3>
+        <div class="tags" id="interviewTags">
+          <span class="tag active" data-cat="all">全部</span>
+          <span class="tag" data-cat="product">产品设计</span>
+          <span class="tag" data-cat="ai">AI/LLM</span>
+          <span class="tag" data-cat="data">数据分析</span>
+          <span class="tag" data-cat="strategy">策略思考</span>
+          <span class="tag" data-cat="behavior">行为面试</span>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="generateAIQuestion()" id="genQBtn">🎲 AI 智能出题</button>
+          <button class="btn outline small" onclick="loadLocalQuestion()">📋 本地题库</button>
+        </div>
+        <div id="interviewQA"></div>
+      </div>
+    </div>
+
+    <!-- Panel 3: JD Analysis -->
+    <div class="panel" id="panel-jd">
+      <div class="card">
+        <h3><span class="dot green"></span> 粘贴岗位 JD</h3>
+        <textarea id="jdInput" placeholder="粘贴你想分析的 AI 产品经理岗位 JD...&#10;&#10;例如：&#10;【岗位职责】&#10;1. 负责大模型应用产品的需求分析和产品设计&#10;2. ..."></textarea>
+        <div class="actions">
+          <button class="btn" onclick="analyzeJD()">🔍 分析 JD</button>
+          <button class="btn outline small" onclick="document.getElementById('jdInput').value=sampleJD">📋 填入示例</button>
+        </div>
+        <div class="result" id="jdResult">
+          <em>点击「分析 JD」后，这里会展示关键词提取、技能匹配建议...</em>
+        </div>
+      </div>
+    </div>
+
+    <!-- Panel 4: Knowledge -->
+    <div class="panel" id="panel-knowledge">
+      <div class="card">
+        <h3><span class="dot yellow"></span> AI 产品经理知识速查</h3>
+        <div class="tags" id="knowledgeTags">
+          <span class="tag active" data-topic="llm">大模型基础</span>
+          <span class="tag" data-topic="prompt">Prompt Engineering</span>
+          <span class="tag" data-topic="rag">RAG</span>
+          <span class="tag" data-topic="agent">AI Agent</span>
+          <span class="tag" data-topic="eval">模型评估</span>
+          <span class="tag" data-topic="fine">微调/SFT</span>
+          <span class="tag" data-topic="product">AIPM 方法论</span>
+          <span class="tag" data-topic="trend">行业趋势</span>
+        </div>
+        <div class="result" id="knowledgeResult">
+          <em>点击上方标签查看知识点...</em>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== Theme Settings Overlay ===== -->
+<div class="overlay" id="settingsOverlay" onclick="closeSettings(event)">
+  <div class="settings-panel" onclick="event.stopPropagation()">
+    <h3>🎨 外观设置</h3>
+
+    <div class="settings-group">
+      <label>主题模式</label>
+      <div class="theme-options">
+        <div class="theme-option active" data-theme="dark" onclick="setTheme('dark')">
+          <span class="theme-swatch swatch-dark"></span> 深色
+        </div>
+        <div class="theme-option" data-theme="light" onclick="setTheme('light')">
+          <span class="theme-swatch swatch-light"></span> 浅色
+        </div>
+        <div class="theme-option" data-theme="warm" onclick="setTheme('warm')">
+          <span class="theme-swatch swatch-warm"></span> 暖色
+        </div>
+        <div class="theme-option" data-theme="green" onclick="setTheme('green')">
+          <span class="theme-swatch swatch-green"></span> 护眼绿
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label>强调色</label>
+      <div class="color-picker-row">
+        <input type="color" id="accentColor" value="#6c63ff" onchange="setAccentColor(this.value)">
+        <span style="font-size:13px;color:var(--text2);">点击色块自定义</span>
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <label>字体大小</label>
+      <div class="font-size-controls">
+        <button class="font-btn" onclick="changeFontSize(-1)" title="缩小">A-</button>
+        <span class="font-label" id="fontSizeLabel">标准 (14px)</span>
+        <button class="font-btn" onclick="changeFontSize(1)" title="放大">A+</button>
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn outline small" onclick="resetSettings()">恢复默认</button>
+      <button class="btn small" onclick="closeSettings()">完成</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============ 配置 ============
+const API_BASE = (() => {
+  // 本地开发用 localhost
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:3001';
+  }
+  // CloudBase 云函数 HTTP 后端地址
+  return 'https://1453911330-bm5pblkp26.ap-shanghai.tencentscf.com';
+})();
+
+let isServerOnline = false;
+
+// ============ Data（离线备用）============
+const sampleResume = `产品经理 | XX公司 | 2022-至今
+• 负责B端SaaS产品从0到1搭建，DAU从0增长至5万
+• 主导需求评审、PRD撰写，协调10人研发团队完成版本迭代
+• 通过用户调研和数据分析优化核心流程，转化率提升30%
+
+产品实习生 | XX科技 | 2021-2022
+• 协助完成移动端App的功能优化，参与A/B测试
+• 输出竞品分析报告，推动3个核心功能上线`;
+
+const sampleJD = `【AI 产品经理】
+岗位职责：
+1. 负责大语言模型（LLM）应用产品的规划与设计，探索 AI Native 产品形态
+2. 深入理解用户场景，将 AI 能力转化为可落地的产品方案
+3. 跟踪前沿 AI 技术发展（Agent、RAG、多模态等），推动产品创新
+4. 与算法、工程团队紧密协作，定义模型效果评估指标
+5. 通过数据分析和用户反馈持续迭代产品体验
+
+任职要求：
+1. 3年以上互联网产品经验，有 AI/ML 相关产品经验优先
+2. 了解大模型基本原理，对 Prompt Engineering 有实践经验
+3. 优秀的数据分析能力，熟练使用 SQL
+4. 强自驱力，对 AI 领域有热情和好奇心`;
+
+const knowledgeBase = {
+  llm: `## 大模型基础（LLM）
+
+**核心概念：**
+• Transformer 架构：自注意力机制（Self-Attention）是核心，让模型理解上下文关系
+• Token：文本被切分成的最小单元，GPT-4 上下文窗口 128K tokens
+• 预训练（Pre-training）：在海量数据上学习语言规律
+• 涌现能力（Emergence）：参数规模达到一定量级后出现的未预期能力
+
+**面试常见问题：**
+• GPT 和传统 NLP 模型的本质区别是什么？
+• 什么是上下文学习（In-Context Learning）？
+• 大模型的幻觉（Hallucination）问题如何缓解？`,
+
+  prompt: `## Prompt Engineering
+
+**关键技巧：**
+• Few-shot：给模型几个示例，让它按模式输出
+• Chain-of-Thought (CoT)：引导模型"一步步思考"，提升推理准确率
+• 角色设定：System Prompt 定义模型角色和行为边界
+• 结构化输出：要求 JSON/Markdown 格式，便于后处理
+
+**产品应用：**
+• 模板化 Prompt 管理 → 产品化
+• Prompt 版本管理和 A/B 测试
+• 用户输入预处理 + Prompt 组合策略`,
+
+  rag: `## RAG（检索增强生成）
+
+**原理：**
+检索(Retrieve) → 增强(Augment) → 生成(Generate)
+将外部知识库检索到的相关内容注入 Prompt，让模型基于准确信息回答。
+
+**关键环节：**
+• 文档切块（Chunking）：大小和重叠策略
+• Embedding：文本转向量，常用模型 text-embedding-3
+• 向量数据库：Milvus、Pinecone、Weaviate
+• 检索策略：语义搜索 + 关键词混合检索
+
+**产品场景：**
+企业知识库问答、智能客服、合同审查、医疗辅助诊断`,
+
+  agent: `## AI Agent
+
+**核心概念：**
+Agent = LLM + 规划(Planning) + 工具调用(Tool Use) + 记忆(Memory)
+
+**主流框架：**
+• LangChain / LangGraph
+• AutoGPT / BabyAGI
+• OpenAI Assistants API
+• Coze / Dify（低代码平台）
+
+**产品思考：**
+• 什么时候需要 Agent vs 简单对话？
+• Agent 的可靠性如何保证？
+• 多 Agent 协作的场景和价值？`,
+
+  eval: `## 模型评估
+
+**评估维度：**
+• 准确性：答案是否正确（准确率、F1）
+• 相关性：回答是否切题
+• 安全性：是否有害、偏见内容
+• 延迟：首 token 时间、端到端耗时
+• 成本：每 1K token 价格
+
+**评估方法：**
+• 人工评估（Human Eval）
+• LLM-as-Judge（用 GPT-4 评估其他模型）
+• 自动化指标（BLEU、ROUGE - 但局限性大）
+• 线上 A/B 实验（真实用户指标）`,
+
+  fine: `## 微调 / SFT
+
+**什么时候需要微调？**
+• Prompt Engineering 无法满足需求
+• 需要特定风格/格式输出
+• 需要模型掌握领域专业知识
+• 需要降低推理成本（小模型微调替代大模型）
+
+**微调类型：**
+• 全量微调（Full Fine-tuning）
+• LoRA / QLoRA（低秩适配，资源友好）
+• 指令微调（Instruction Tuning）
+
+**产品关注点：**
+数据质量和数量 > 微调技术本身
+微调后的模型如何评估和迭代？`,
+
+  product: `## AIPM 方法论
+
+**AI 产品 vs 传统产品的差异：**
+• 不确定性高：模型行为不可完全预测
+• 迭代节奏快：技术演进速度远超传统软件
+• 评估复杂：没有绝对的"对错"，需要多维评估
+
+**核心能力：**
+• 技术理解：不需要写代码，但要知道什么可行
+• 实验思维：A/B 测试、灰度发布、指标驱动
+• 用户同理心：AI 产品最终服务于人
+• 风险管理：内容安全、合规、伦理
+
+**产品设计原则：**
+• 人机协作 > 完全替代
+• 渐进式交付 > 一步到位
+• 用户控制权 > 自动化`,
+
+  trend: `## 2024-2025 AI 行业趋势
+
+**热门方向：**
+• AI Agent 产品化（自动化工作流）
+• 多模态大模型（文生图、文生视频、图生3D）
+• AI Coding / Copilot（编程助手）
+• AI Search（Perplexity 模式）
+• 端侧模型（Apple Intelligence、手机端运行）
+
+**面试思考角度：**
+• 你最近关注哪个 AI 产品？为什么它做得好？
+• 如果你来做 ChatGPT，下一步会加什么功能？
+• AI 产品如何差异化？护城河在哪里？`
+};
+
+const interviewQuestions = {
+  all: [
+    { q: "如果让你设计一个 AI 客服产品，你会怎么规划？", cat: "product" },
+    { q: "解释一下 RAG 的基本原理，以及它的典型应用场景", cat: "ai" },
+    { q: "如何评估一个大模型产品的好坏？请给出你的指标体系", cat: "data" },
+    { q: "AI 产品的商业化路径有哪些？分别适合什么场景？", cat: "strategy" },
+    { q: "说说你做产品经理最有成就感的一个项目", cat: "behavior" },
+    { q: "你怎么看待 Prompt Engineering 产品化？", cat: "ai" },
+    { q: "设计一个 AI 面试模拟产品的 MVP，你会怎么做？", cat: "product" },
+    { q: "如果一个 AI 功能上线后用户留存很差，你会怎么分析？", cat: "data" },
+    { q: "Agent 和传统 Chatbot 的核心区别是什么？", cat: "ai" },
+    { q: "你怎么理解 AI Native 产品？举个你认为好的例子", cat: "strategy" },
+  ]
+};
+['product','ai','data','strategy','behavior'].forEach(cat => {
+  interviewQuestions[cat] = interviewQuestions.all.filter(q => q.cat === cat);
+});
+
+let currentQuestion = null;
+let questionHistory = [];
+
+// ============ API 调用 ============
+async function apiCall(endpoint, body) {
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '请求失败');
+    return data;
+  } catch (err) {
+    console.error('API 错误:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+async function checkServerStatus() {
+  const statusEl = document.getElementById('serverStatus');
+  try {
+    const res = await fetch(`${API_BASE}/api/health`);
+    if (res.ok) {
+      isServerOnline = true;
+      statusEl.textContent = '🟢 AI 在线';
+      statusEl.style.background = 'rgba(0,201,167,0.15)';
+      statusEl.style.color = '#00c9a7';
+    } else {
+      throw new Error('offline');
+    }
+  } catch {
+    isServerOnline = false;
+    statusEl.textContent = '🔴 离线模式';
+    statusEl.style.background = 'rgba(255,100,100,0.15)';
+    statusEl.style.color = '#ff6464';
+  }
+}
+
+// ============ Navigation ============
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = btn.dataset.panel;
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + panel).classList.add('active');
+    document.getElementById('panelTitle').textContent = btn.textContent.trim();
+  });
+});
+
+// ============ Interview Tags ============
+document.getElementById('interviewTags').addEventListener('click', (e) => {
+  if (e.target.classList.contains('tag')) {
+    document.querySelectorAll('#interviewTags .tag').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+  }
+});
+
+// ============ Knowledge Tags ============
+document.getElementById('knowledgeTags').addEventListener('click', (e) => {
+  if (e.target.classList.contains('tag')) {
+    document.querySelectorAll('#knowledgeTags .tag').forEach(t => t.classList.remove('active'));
+    e.target.classList.add('active');
+    const topic = e.target.dataset.topic;
+    loadKnowledge(topic);
+  }
+});
+
+async function loadKnowledge(topic) {
+  const resultEl = document.getElementById('knowledgeResult');
+  if (isServerOnline) {
+    resultEl.innerHTML = '<span class="typing">AI 正在生成回答</span>';
+    const topicNames = {
+      llm: '大模型基础（LLM）', prompt: 'Prompt Engineering', rag: 'RAG检索增强生成',
+      agent: 'AI Agent', eval: '大模型评估方法', fine: '模型微调/SFT',
+      product: 'AIPM方法论', trend: '2024-2025 AI行业趋势'
+    };
+    const res = await apiCall('/api/knowledge/ask', { topic: topicNames[topic] || topic });
+    if (res.success) {
+      resultEl.innerHTML = res.data.replace(/\n/g, '<br>');
+    } else {
+      resultEl.innerHTML = knowledgeBase[topic].replace(/\n/g, '<br>');
+    }
+  } else {
+    resultEl.innerHTML = knowledgeBase[topic].replace(/\n/g, '<br>');
+  }
+}
+
+// ============ Resume - AI 优化 ============
+async function optimizeResume() {
+  const input = document.getElementById('resumeInput').value.trim();
+  if (!input) { alert('请先粘贴简历内容'); return; }
+
+  const result = document.getElementById('resumeResult');
+
+  if (isServerOnline) {
+    result.innerHTML = '<span class="typing">🤖 AI 正在深度分析你的简历</span>';
+    const res = await apiCall('/api/resume/optimize', { resume: input });
+    if (res.success) {
+      result.innerHTML = res.data.replace(/\n/g, '<br>');
+    } else {
+      result.innerHTML = `<strong>⚠️ AI 服务异常：</strong>${res.error}<br><br><em>已自动切换本地分析模式...</em><br><br>` + analyzeResumeLocally(input);
+    }
+  } else {
+    result.innerHTML = '<span class="typing">正在分析优化</span>';
+    setTimeout(() => {
+      result.innerHTML = analyzeResumeLocally(input);
+    }, 800);
+  }
+}
+
+function analyzeResumeLocally(text) {
+  const lower = text.toLowerCase();
+  const aiKeywords = ['ai', 'llm', '大模型', '机器学习', '深度学习', 'nlp', 'prompt', 'agent', 'rag', 'embedding', '微调', 'sft', 'transformer', 'gpt', 'chatgpt', 'copilot'];
+  const foundAI = aiKeywords.filter(kw => lower.includes(kw));
+  const pmKeywords = ['需求分析', 'prd', '产品设计', '原型', '用户体验', '竞品分析', '数据分析', 'a/b测试', 'ab测试', '用户调研', '增长', '留存', '转化', 'dau', 'mau'];
+  const foundPM = pmKeywords.filter(kw => lower.includes(kw));
+  const dataKeywords = ['sql', 'python', 'tableau', '数据驱动', '指标体系', 'ab实验', '埋点', '看板'];
+  const foundData = dataKeywords.filter(kw => lower.includes(kw));
+
+  let result = `<strong>📊 分析结果</strong>（本地离线模式）\n\n`;
+  let score = 60;
+  if (foundAI.length >= 3) score += 15; else if (foundAI.length >= 1) score += 8;
+  if (foundPM.length >= 5) score += 10; else if (foundPM.length >= 3) score += 5;
+  if (foundData.length >= 2) score += 10; else if (foundData.length >= 1) score += 5;
+  score = Math.min(score, 95);
+
+  result += `<strong>AI PM 匹配度评分：${score}/100</strong>\n\n`;
+  result += `<strong>🔍 已识别的 AI 关键词：</strong>\n`;
+  result += foundAI.length > 0 ? foundAI.join('、') + '\n' : '⚠️ 未检测到 AI 相关关键词\n';
+  result += '\n<strong>📋 产品能力关键词：</strong>\n';
+  result += foundPM.length > 0 ? foundPM.join('、') + '\n' : '⚠️ 产品经验描述不足\n';
+  result += '\n<strong>💡 优化建议：</strong>\n';
+  if (foundAI.length < 2) result += '• 强烈建议补充 AI/LLM 相关项目经验\n';
+  if (!lower.includes('数据') && !lower.includes('指标')) result += '• 增加数据驱动决策的具体案例\n';
+  if (!lower.includes('%') && !lower.includes('提升') && !lower.includes('增长')) result += '• 用具体数字量化成果\n';
+  if (foundPM.length < 4) result += '• 补充完整的产品工作流描述\n';
+  result += '• 在简历中加入对 AI 产品的思考和见解\n';
+  result += '• 突出跨团队协作经验\n';
+  result += '\n<em>💡 提示：连接后端 AI 服务可获得更专业的深度分析和改写建议</em>';
+  return result;
+}
+
+// ============ Interview ============
+async function generateAIQuestion() {
+  const activeTag = document.querySelector('#interviewTags .tag.active');
+  const cat = activeTag ? activeTag.dataset.cat : 'all';
+  const genQBtn = document.getElementById('genQBtn');
+  genQBtn.textContent = '⏳ AI 正在出题...';
+  genQBtn.disabled = true;
+
+  if (isServerOnline) {
+    const res = await apiCall('/api/interview/question', { category: cat, history: questionHistory });
+    genQBtn.textContent = '🎲 AI 智能出题';
+    genQBtn.disabled = false;
+
+    if (res.success && res.data) {
+      currentQuestion = res.data;
+      questionHistory.push(res.data.question);
+      showQuestionWithAnswerInput(res.data);
+      return;
+    }
+  }
+
+  // 离线 fallback
+  genQBtn.textContent = '🎲 AI 智能出题';
+  genQBtn.disabled = false;
+  loadLocalQuestion();
+}
+
+function loadLocalQuestion() {
+  const activeTag = document.querySelector('#interviewTags .tag.active');
+  const cat = activeTag ? activeTag.dataset.cat : 'all';
+  const pool = interviewQuestions[cat] || interviewQuestions.all;
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  currentQuestion = { question: q.q, category: q.cat, key_points: [], difficulty: 'medium' };
+  showQuestionWithAnswerInput(currentQuestion);
+}
+
+function showQuestionWithAnswerInput(data) {
+  const q = data.question || data.q;
+  const cat = data.category || data.cat;
+  const points = data.key_points || [];
+
+  document.getElementById('interviewQA').innerHTML = `
+    <div class="qa-block">
+      <div class="q">🎯 ${q}</div>
+      ${points.length > 0 ? `<div style="font-size:12px;color:var(--accent);margin:6px 0;">考察点：${points.join('、')}</div>` : ''}
+      <div class="score">
+        <span style="color:var(--text2);font-size:12px;">难度：</span>
+        ${data.difficulty === 'hard' ? '⭐⭐⭐⭐' : cat === 'ai' || cat === 'strategy' ? '⭐⭐⭐⭐' : '⭐⭐⭐'}
+      </div>
+      <div style="margin-top:12px;">
+        <textarea id="answerInput" placeholder="在这里写下你的回答...&#10;&#10;建议用 STAR 法则：情境 → 任务 → 行动 → 结果" style="min-height:100px;"></textarea>
+        <div class="actions">
+          <button class="btn" onclick="evaluateAnswer()">🤖 AI 评估我的回答</button>
+          <button class="btn outline small" onclick="showLocalAnswer()">💡 查看参考思路</button>
+        </div>
+      </div>
+      <div id="evaluationResult"></div>
+    </div>
+  `;
+}
+
+async function evaluateAnswer() {
+  const answer = document.getElementById('answerInput')?.value.trim();
+  if (!answer) { alert('请先写下你的回答'); return; }
+
+  const evalResult = document.getElementById('evaluationResult');
+  evalResult.innerHTML = '<div class="result"><span class="typing">🤖 AI 正在评估你的回答</span></div>';
+
+  if (isServerOnline && currentQuestion) {
+    const res = await apiCall('/api/interview/evaluate', {
+      question: currentQuestion.question,
+      answer: answer
+    });
+    if (res.success) {
+      evalResult.innerHTML = `<div class="result">${res.data.replace(/\n/g, '<br>')}</div>`;
+      return;
+    }
+  }
+
+  // 离线模式给出简单反馈
+  setTimeout(() => {
+    const wordCount = answer.length;
+    let feedback = `<strong>📝 离线评估</strong>（连接 AI 服务可获得详细评估）\n\n`;
+    feedback += `字数：${wordCount} 字\n`;
+    if (wordCount < 50) feedback += '⚠️ 回答过短，建议展开论述\n';
+    else if (wordCount < 200) feedback += '💡 回答可以更详细，建议用 STAR 法则展开\n';
+    else feedback += '✅ 回答篇幅适中\n';
+    feedback += '\n<strong>自检清单：</strong>\n';
+    feedback += '• 是否用了具体数据和案例？\n';
+    feedback += '• 是否展示了 AI 技术理解？\n';
+    feedback += '• 回答结构是否清晰（总-分-总）？\n';
+    feedback += '\n<em>💡 启动后端 AI 服务可获取专业面试官级别的详细评估</em>';
+    evalResult.innerHTML = `<div class="result">${feedback.replace(/\n/g, '<br>')}</div>`;
+  }, 800);
+}
+
+function showLocalAnswer() {
+  if (!currentQuestion) { alert('请先生成一道面试题'); return; }
+  const q = currentQuestion.question || currentQuestion.q;
+
+  const answers = {
+    "如果让你设计一个 AI 客服产品，你会怎么规划？": `【参考思路】
+1. 市场分析：目标客户（电商/金融/教育），痛点（重复问题多、人力成本高）
+2. MVP 核心：知识库问答(RAG) + 人工转接 + 多轮对话
+3. 差异化：情感识别、主动服务
+4. 指标：问题解决率、转人工率、CSAT、首次响应时间
+5. 技术：RAG + 意图识别 + 情感分析 + 工单集成`,
+    "解释一下 RAG 的基本原理，以及它的典型应用场景": `【参考思路】
+RAG = Retrieval-Augmented Generation
+三步：Retrieve(检索) → Augment(增强) → Generate(生成)
+应用：企业知识库问答、智能客服、法律/医疗辅助、代码助手
+关键决策：Chunk 大小、检索策略、Top-K 设置`,
+    "如何评估一个大模型产品的好坏？请给出你的指标体系": `【参考思路】
+四层指标：效果层(准确率/满意度)、体验层(TTFT/延迟)、增长层(DAU/留存/NPS)、成本层(单次成本/ROI)`,
+  };
+
+  const answerText = answers[q] || `【参考思路】建议用 STAR 法则回答：
+• Situation：背景场景
+• Task：面临的任务
+• Action：采取的行动
+• Result：取得的结果（用数据说话）`;
+
+  const evalResult = document.getElementById('evaluationResult');
+  evalResult.innerHTML = `<div class="result">${answerText.replace(/\n/g, '<br>')}</div>`;
+}
+
+// ============ JD Analysis ============
+async function analyzeJD() {
+  const input = document.getElementById('jdInput').value.trim();
+  if (!input) { alert('请先粘贴 JD 内容'); return; }
+
+  const result = document.getElementById('jdResult');
+
+  if (isServerOnline) {
+    result.innerHTML = '<span class="typing">🤖 AI 正在深度分析 JD</span>';
+    const res = await apiCall('/api/jd/analyze', { jd: input });
+    if (res.success) {
+      result.innerHTML = res.data.replace(/\n/g, '<br>');
+      return;
+    }
+  }
+
+  result.innerHTML = '<span class="typing">正在分析 JD</span>';
+  setTimeout(() => {
+    result.innerHTML = analyzeJDLocally(input);
+  }, 600);
+}
+
+function analyzeJDLocally(jd) {
+  const techKeywords = ['llm', '大模型', '大语言模型', 'gpt', 'transformer', 'prompt', 'agent', 'rag', 'nlp', '机器学习', '深度学习', '算法', '微调', 'sft', 'embedding', '向量', '多模态'];
+  const pmKeywords = ['需求分析', '产品规划', '产品设计', 'prd', '用户体验', '原型', '竞品分析', '数据分析', 'a/b', '用户调研', '增长', '指标'];
+  const toolKeywords = ['sql', 'python', 'figma', 'axure', 'tableau', 'jira'];
+  const softKeywords = ['自驱', '沟通', '协作', '好奇', '热情', 'owner', '抗压', '快速学习'];
+  const lower = jd.toLowerCase();
+
+  let result = `<strong>🔍 JD 分析报告</strong>（本地离线模式）\n\n`;
+  result += `<strong>📌 技术能力：</strong>\n${techKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 未明确'}\n\n`;
+  result += `<strong>📌 产品能力：</strong>\n${pmKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 通用'}\n\n`;
+  result += `<strong>📌 工具技能：</strong>\n${toolKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 未明确'}\n\n`;
+  result += `<strong>📌 软素质：</strong>\n${softKeywords.filter(k=>lower.includes(k)).map(k=>'• '+k).join('\n') || '• 通用'}\n\n`;
+  result += `<strong>💡 建议：</strong>准备 1-2 个 AI 产品案例，研究该公司产品，准备行业见解\n`;
+  result += '\n<em>💡 连接后端 AI 服务可获取深度分析和面试策略</em>';
+  return result;
+}
+
+// ============ Theme Settings ============
+let currentFontSize = 14;
+let currentAccent = '#6c63ff';
+
+function openSettings() {
+  document.getElementById('settingsOverlay').classList.add('show');
+  syncSettingsUI();
+}
+
+function closeSettings(e) {
+  if (e && e.target !== document.getElementById('settingsOverlay')) return;
+  document.getElementById('settingsOverlay').classList.remove('show');
+}
+
+function setTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.theme === theme);
+  });
+  localStorage.setItem('aipm-theme', theme);
+}
+
+function setAccentColor(color) {
+  currentAccent = color;
+  document.documentElement.style.setProperty('--accent', color);
+  localStorage.setItem('aipm-accent', color);
+}
+
+function changeFontSize(delta) {
+  currentFontSize = Math.max(11, Math.min(18, currentFontSize + delta));
+  document.documentElement.style.setProperty('--font-size', currentFontSize + 'px');
+  document.getElementById('fontSizeLabel').textContent =
+    currentFontSize <= 12 ? '小 (' + currentFontSize + 'px)' :
+    currentFontSize >= 16 ? '大 (' + currentFontSize + 'px)' :
+    '标准 (' + currentFontSize + 'px)';
+  localStorage.setItem('aipm-fontsize', currentFontSize);
+}
+
+function resetSettings() {
+  setTheme('dark');
+  setAccentColor('#6c63ff');
+  currentFontSize = 14;
+  document.documentElement.style.setProperty('--font-size', '14px');
+  document.getElementById('fontSizeLabel').textContent = '标准 (14px)';
+  document.getElementById('accentColor').value = '#6c63ff';
+  syncSettingsUI();
+  localStorage.removeItem('aipm-theme');
+  localStorage.removeItem('aipm-accent');
+  localStorage.removeItem('aipm-fontsize');
+}
+
+function syncSettingsUI() {
+  const theme = document.documentElement.getAttribute('data-theme') || 'dark';
+  document.querySelectorAll('.theme-option').forEach(opt => {
+    opt.classList.toggle('active', opt.dataset.theme === theme);
+  });
+  document.getElementById('accentColor').value = currentAccent;
+  document.getElementById('fontSizeLabel').textContent =
+    currentFontSize <= 12 ? '小 (' + currentFontSize + 'px)' :
+    currentFontSize >= 16 ? '大 (' + currentFontSize + 'px)' :
+    '标准 (' + currentFontSize + 'px)';
+}
+
+// Load saved settings
+(function loadSettings() {
+  const savedTheme = localStorage.getItem('aipm-theme');
+  if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+  const savedAccent = localStorage.getItem('aipm-accent');
+  if (savedAccent) { currentAccent = savedAccent; document.documentElement.style.setProperty('--accent', savedAccent); }
+  const savedFontSize = localStorage.getItem('aipm-fontsize');
+  if (savedFontSize) { currentFontSize = parseInt(savedFontSize); document.documentElement.style.setProperty('--font-size', currentFontSize + 'px'); }
+})();
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('settingsOverlay').classList.remove('show');
+});
+
+// ============ Init ============
+document.getElementById('knowledgeResult').innerHTML = knowledgeBase.llm.replace(/\n/g, '<br>');
+checkServerStatus();
+// 每 30 秒检查一次服务器状态
+setInterval(checkServerStatus, 30000);
+</script>
+</script>
+</body>
+</html>
