@@ -1,0 +1,12 @@
+{
+  "name": "ai-pm-agent-fn",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "openai": "^4.20.0"
+  }
+}

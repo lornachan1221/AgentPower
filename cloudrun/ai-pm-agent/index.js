@@ -1,6 +1,5 @@
 const express = require('express');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
 const OpenAI = require('openai');
 
 const app = express();
@@ -13,17 +12,13 @@ const openai = new OpenAI({
   baseURL: process.env.LLM_BASE_URL || 'https://api.siliconflow.cn/v1',
 });
 
-const supabase = process.env.SUPABASE_URL
-  ? createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
-  : null;
-
-const MODEL = process.env.LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct';
+const MODEL = process.env.LLM_MODEL || 'Qwen/Qwen3.5-9B';
 
 // ============ API 路由 ============
 
 // 健康检查
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', hasSupabase: !!supabase, model: MODEL });
+  res.json({ status: 'ok', model: MODEL });
 });
 
 // === 简历优化 ===
@@ -65,16 +60,6 @@ ${resume}
     });
 
     const result = completion.choices[0].message.content;
-
-    // 如果有 Supabase，保存记录
-    if (supabase) {
-      await supabase.from('resume_optimizations').insert({
-        original_resume: resume,
-        optimized_result: result,
-        created_at: new Date().toISOString(),
-      });
-    }
-
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('简历优化失败:', error.message);
@@ -128,7 +113,6 @@ app.post('/api/interview/question', async (req, res) => {
     });
 
     const raw = completion.choices[0].message.content;
-    // 尝试解析 JSON
     let data;
     try {
       const jsonMatch = raw.match(/\{[\s\S]*\}/);
@@ -184,16 +168,6 @@ X/10 分，简要说明理由
     });
 
     const result = completion.choices[0].message.content;
-
-    if (supabase) {
-      await supabase.from('interview_records').insert({
-        question,
-        answer,
-        evaluation: result,
-        created_at: new Date().toISOString(),
-      });
-    }
-
     res.json({ success: true, data: result });
   } catch (error) {
     console.error('评估失败:', error.message);
@@ -288,9 +262,8 @@ ${topic}
 });
 
 // ============ 启动服务 ============
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🚀 AI PM Agent 后端已启动: http://localhost:${PORT}`);
   console.log(`📡 LLM 模型: ${MODEL}`);
-  console.log(`🗄️  Supabase: ${supabase ? '已连接' : '未配置（数据不会持久化）'}`);
 });

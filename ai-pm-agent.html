@@ -589,10 +589,8 @@ const API_BASE = (() => {
   if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
     return 'http://localhost:3001';
   }
-  // 公网隧道（后端部署在这里）
-  return 'https://bygjc-2409-8a1e-99c3-1751-1923-e56a-f15c-830c.run.pinggy-free.link';
-})();
-  return '';
+  // CloudBase 云函数 HTTP 后端地址
+  return 'https://1453911330-bm5pblkp26.ap-shanghai.tencentscf.com';
 })();
 
 let isServerOnline = false;

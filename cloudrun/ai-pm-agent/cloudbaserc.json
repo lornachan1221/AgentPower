@@ -1,0 +1,6 @@
+{
+  "envId": "agentpower-d0gbgj8h326707cf2",
+  "cloudrun": {
+    "name": "ai-pm-agent"
+  }
+}
